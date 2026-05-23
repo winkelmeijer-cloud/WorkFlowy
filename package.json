@@ -1,0 +1,28 @@
+{
+  "name": "workflowy-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing WorkFlowy outlines as tools, backed by the karelklima/workflowy client.",
+  "type": "module",
+  "bin": {
+    "workflowy-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "dotenv": "^16.4.5",
+    "workflowy": "^2.9.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}
