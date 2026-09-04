@@ -1,18 +1,54 @@
+import { readFileSync } from "node:fs";
 import { WorkFlowy } from "workflowy";
 
 type WorkFlowyDocument = Awaited<ReturnType<WorkFlowy["getDocument"]>>;
 export type WFItem = WorkFlowyDocument["root"];
+
+// Credentials live in PrivateConfig, never in a repository and never in an MCP
+// client's config file -- the same rule the notify, mail-fetch and sheets-write
+// tools follow. Override the location with WORKFLOWY_ENV.
+const PRIVATE_CONFIG = "C:\\Users\\winke\\Documents\\PrivateConfig";
+const DEFAULT_ENV_FILE = `${PRIVATE_CONFIG}\\workflowy.env`;
+
+function envFilePath(): string {
+  return process.env.WORKFLOWY_ENV || DEFAULT_ENV_FILE;
+}
+
+// Parse a KEY=value file the way the other machine-local tools do: skip blanks
+// and # comments, split on the first =, trim both sides.
+function readEnvFile(path: string): Record<string, string> {
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    return {};
+  }
+  const conf: Record<string, string> = {};
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq < 0) continue;
+    conf[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+  return conf;
+}
 
 let client: WorkFlowy | null = null;
 
 export function getClient(): WorkFlowy {
   if (client) return client;
 
-  const username = process.env.WORKFLOWY_USERNAME;
-  const password = process.env.WORKFLOWY_PASSWORD;
+  // An explicit environment variable still wins, so a one-off run can override
+  // the file; otherwise the credential comes from PrivateConfig.
+  const file = readEnvFile(envFilePath());
+  const username = process.env.WORKFLOWY_USERNAME || file.WORKFLOWY_USERNAME;
+  const password = process.env.WORKFLOWY_PASSWORD || file.WORKFLOWY_PASSWORD;
   if (!username || !password) {
     throw new Error(
-      "Missing credentials: set WORKFLOWY_USERNAME and WORKFLOWY_PASSWORD in the environment. " +
+      `Missing WorkFlowy credentials: expected WORKFLOWY_USERNAME and WORKFLOWY_PASSWORD in ${envFilePath()}. ` +
+        "Create that file (override the location with WORKFLOWY_ENV, or set the variables in the environment). " +
+        "Credentials belong in PrivateConfig -- never inside a repository. " +
         "Note: accounts with 2FA/one-time codes are not supported by the underlying library.",
     );
   }

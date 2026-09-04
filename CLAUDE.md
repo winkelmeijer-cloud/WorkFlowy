@@ -20,12 +20,23 @@ There is no test or lint infrastructure currently.
 
 ## Configuration
 
-Set credentials via environment variables or a `.env` file:
+Credentials are read in `src/workflowy.ts` from
+`C:\Users\winke\Documents\PrivateConfig\workflowy.env` (override the path with
+`WORKFLOWY_ENV`), parsed as `KEY=value` the same way `notify`, `mail-fetch` and
+`sheets-write` parse theirs:
 
 ```
 WORKFLOWY_USERNAME=user@email.com
 WORKFLOWY_PASSWORD=password
 ```
+
+An explicit `WORKFLOWY_USERNAME` / `WORKFLOWY_PASSWORD` in the process
+environment still wins over the file.
+
+⚠️ **Do not reintroduce an `env` block in an MCP client config.** Until
+2026-09-04 the credential sat in cleartext in `~/.claude/.mcp.json`, readable by
+every process running as this user. Secrets live in PrivateConfig and nowhere
+else — the estate rule in `C:\dev\CLAUDE.md`.
 
 Accounts with two-factor authentication are not supported (library limitation of `karelklima/workflowy`).
 

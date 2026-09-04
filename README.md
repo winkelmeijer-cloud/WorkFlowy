@@ -29,29 +29,33 @@ npm install
 npm run build
 ```
 
-Provide credentials via environment variables (a `.env` file is loaded
-automatically for local runs — see `.env.example`):
+Credentials come from `C:\Users\winke\Documents\PrivateConfig\workflowy.env`
+on this machine, in the same `KEY=value` shape the other local tools use:
 
 ```
 WORKFLOWY_USERNAME=your@email.com
 WORKFLOWY_PASSWORD=your-password
 ```
 
+Override the location with `WORKFLOWY_ENV`. Setting `WORKFLOWY_USERNAME` /
+`WORKFLOWY_PASSWORD` directly in the environment still works and takes
+precedence, which is handy for a one-off run.
+
+**Never put the credentials in your MCP client's config file** — see Security
+notes.
+
 ## Use with Claude Code / Claude Desktop
 
 Add the server to your MCP client config, e.g. for Claude Desktop
-(`claude_desktop_config.json`):
+(`claude_desktop_config.json`). Note there is no `env` block — the server reads
+the credential itself:
 
 ```json
 {
   "mcpServers": {
     "workflowy": {
       "command": "node",
-      "args": ["/absolute/path/to/workflowy-mcp/dist/index.js"],
-      "env": {
-        "WORKFLOWY_USERNAME": "your@email.com",
-        "WORKFLOWY_PASSWORD": "your-password"
-      }
+      "args": ["/absolute/path/to/workflowy-mcp/dist/index.js"]
     }
   }
 }
@@ -72,8 +76,13 @@ npm run typecheck  # type-check without emitting
 
 ## Security notes
 
-- Your WorkFlowy password lives in the server's environment. Keep `.env` out of
-  version control (it is git-ignored).
+- **The password never goes in the MCP client config.** An `env` block there sits
+  in cleartext in a file every process running as you can read — including every
+  agent session, and anything a prompt injection talks one into running. This
+  server reads PrivateConfig instead. That is how it was configured until
+  2026-09-04, and moving it out is why the setup section reads as it does.
+- The credential file lives outside every repository, so there is no secret in
+  this tree for `.gitignore` to have to catch.
 - The server has full read/write/delete access to your outline. `delete_node` is
   irreversible.
 - This relies on an unofficial API; it may break if WorkFlowy changes internals.
