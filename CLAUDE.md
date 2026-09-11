@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**workflowy-mcp** is a Model Context Protocol (MCP) server that exposes WorkFlowy outlines as tools accessible to Claude and other MCP clients. It authenticates with WorkFlowy using an unofficial community API client and lazy-loads the document tree on first use.
+**workflowy-mcp** is a Model Context Protocol (MCP) server that exposes WorkFlowy outlines as tools accessible to Claude and other MCP clients. It authenticates with WorkFlowy using an unofficial community API client and downloads the full document tree on every tool call.
 
 ## Commands
 
@@ -44,20 +44,20 @@ Accounts with two-factor authentication are not supported (library limitation of
 
 The project has exactly two source files:
 
-- **`src/workflowy.ts`** — WorkFlowy client singleton (`getClient()`), lazy document loading (`loadDocument()`), tree traversal (`walk`, `findById`), serialization (`serializeItem`), and search. All WorkFlowy API interaction is isolated here.
+- **`src/workflowy.ts`** — WorkFlowy client singleton (`getClient()`), document loading (`loadDocument()`, a fresh fetch each time), tree traversal (`walk`, `findById`), serialization (`serialize`), and search. All WorkFlowy API interaction is isolated here.
 
 - **`src/index.ts`** — MCP server setup (StdioServerTransport), all 8 tool definitions with Zod-validated input schemas, a `run()` error-handling wrapper that converts exceptions to MCP error responses, and `ok()`/`fail()` helpers for formatting results.
 
 ## Adding a New Tool
 
-1. In `src/index.ts`, add a new entry to the `server.setRequestHandler(ListToolsRequestSchema, ...)` tools array with `name`, `description`, and `inputSchema` (Zod schema).
-2. Add a matching `case` in the `CallToolRequestSchema` handler, invoking `run()` with your implementation.
+1. In `src/index.ts`, add a `server.tool(name, description, zodShape, handler)` call next to the existing eight. The handler wraps its body in `run(async () => { ... })` and returns `ok(data)` or `fail(message)`.
+2. Load the document with `await loadDocument()` inside the handler (never at module level) and, for a mutation, finish with `await doc.save()`.
 3. If the tool needs new WorkFlowy operations, add helper functions to `src/workflowy.ts` and export them.
 
 ## Key Patterns
 
-- **Lazy loading**: `loadDocument()` fetches the full WorkFlowy tree only on first tool call; subsequent calls reuse the cached `document` variable. Mutations (create/edit/move/delete) update the live tree without re-fetching.
+- **Fresh fetch per call**: `loadDocument()` downloads the whole tree every time it is called (about 2.6 s for ~19k nodes as of 2026-09-11). Only the client object is cached, not the document. Mutations edit the freshly loaded tree and persist with `doc.save()`; there is no cache to invalidate and no cross-call state.
 - **Error propagation**: Wrap all tool implementations in `run(async () => { ... })`. Any thrown error becomes a `{ isError: true, content: [...] }` response rather than crashing the server.
-- **Serialization depth**: `serializeItem(item, depth)` recursively serializes children up to the specified depth. Use depth `0` for leaf-only, higher values for subtree traversal.
+- **Serialization depth**: `serialize(item, depth)` recursively serializes children up to the specified depth. Use depth `0` for leaf-only, higher values for subtree traversal. It emits `id`, `name`, `note`, `isCompleted`, `childCount` and `children` only; the library also carries `createdAt`, `lastModifiedAt`, `completedAt`, attachments, mirrors, sharing state and `priority`, which are dropped here.
 - **IDs**: WorkFlowy nodes use UUID-like strings as IDs. The string `"root"` is a sentinel used by `move_node` to indicate the top-level parent.
 - **Logging**: Use `console.error()` for debug output — `console.log()` goes to stdout which is the MCP transport channel and will corrupt the protocol.
