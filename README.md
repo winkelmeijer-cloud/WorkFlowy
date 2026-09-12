@@ -14,7 +14,7 @@ supported by that library.
 | Tool | Description |
 | --- | --- |
 | `list_top_level` | List the top-level items of the outline (a starting point for discovering ids). |
-| `search_nodes` | Case-insensitive substring search across all item names and notes. |
+| `search_nodes` | Case-insensitive substring search across all item names and notes. Each hit carries its ancestor `path` (plain text) and `lastModifiedAt`. |
 | `get_node` | Fetch one node by id, including descendants up to a depth. |
 | `create_node` | Create a new item, optionally under a given parent. |
 | `edit_node` | Change an item's name and/or note. |

@@ -3,7 +3,7 @@ import "dotenv/config";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { findById, loadDocument, search, serialize } from "./workflowy.js";
+import { findById, loadDocument, pathOf, search, serialize } from "./workflowy.js";
 
 type ToolResult = {
   content: { type: "text"; text: string }[];
@@ -54,7 +54,7 @@ server.tool(
 
 server.tool(
   "search_nodes",
-  "Search the entire outline for items whose name or note contains the query (case-insensitive substring match). Returns matching node ids.",
+  "Search the entire outline for items whose name or note contains the query (case-insensitive substring match). Each hit carries the node id, its ancestor path (plain text, top level first) and lastModifiedAt.",
   {
     query: z.string().min(1).describe("Text to search for in item names and notes."),
     limit: z.number().int().min(1).max(200).default(25).describe("Maximum number of matches to return."),
@@ -68,7 +68,7 @@ server.tool(
 
 server.tool(
   "get_node",
-  "Get a single node by id, including its descendants up to the requested depth.",
+  "Get a single node by id, including its descendants up to the requested depth. The result carries the node's ancestor path plus createdAt/lastModifiedAt/completedAt, and hasFile, isMirror and shared when they apply.",
   {
     id: z.string().min(1).describe("The id of the node to fetch."),
     depth: z.number().int().min(0).max(10).default(2).describe("How many levels of children to include."),
@@ -78,7 +78,7 @@ server.tool(
       const doc = await loadDocument();
       const item = findById(doc, id);
       if (!item) return fail(`No node found with id "${id}".`);
-      return ok(serialize(item, depth));
+      return ok({ path: pathOf(item, doc.root), ...serialize(item, depth) });
     }),
 );
 
